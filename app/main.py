@@ -7,19 +7,17 @@ import uvicorn
 import httpx
 import json
 
-fast_app = FastAPI()
 
+fast_app = FastAPI(debug=True)
 sio = socketio.AsyncServer(
-    async_mode="asgi",
-    cors_allowed_origins="*"
+    async_mode='asgi',
+    cors_allowed_origins='*'
 )
-
 app = socketio.ASGIApp(
     socketio_server=sio,
     other_asgi_app=fast_app,
-    socketio_path='/socket.io',
+    socketio_path='/socket.io/'
 )
-
 users = ConnectedUsers()
 
 carol_bus = "http://127.0.0.1:3005"
@@ -27,35 +25,33 @@ carol_bus = "http://127.0.0.1:3005"
 # event dispatcher function
 
 
-async def send_event(endpoint: str, data: dict, event_type: str):
-    event = {"type": event_type, "payload": data}
-    res = await httpx.post(f"{carol_bus}/{endpoint}", data=event)
-    return res.json()
-
 # event listener from bus =====================================
-
-# event data model
 
 
 @fast_app.post('/events/')
 async def event_listener(event: dict):
     print("Carol dispatched a new event: ", event)
+    # test end
     if (event['type'] == 'userJoin'):
-        user = User(event['payload'])
+        payload = event['payload']
+        user = User(payload['username'], sid=payload['sid'])
+        print("connecting user => ", user)
         if(users.connect_user(user)):
             print(f"{user} ready for connection")
+            await sio.emit('joined', {
+                'connected_users': users.connected_users})
     return ({'status': 'event received'})
 
 # ==============================================================
 
 
-@sio.event
+@ sio.event
 async def connect(sid, environ):
     await sio.emit("connected", {
         'connect': "true", "sid": sid}, room=sid)
 
 
-@sio.event
+@ sio.event
 async def disconnect(sid):
     print("disconnecting => ", sid)
     users.disconnect_user(sid)
@@ -64,21 +60,19 @@ async def disconnect(sid):
     })
 
 
-@sio.event
+@ sio.event
 async def join(sid, data):
     print("JOINING")
     user = User(data['user']['username'], sid=sid)
 
-    print("connection user=> ", data, sid)
-
-    # sending event to Carol
-    print('connected users ==> ', users.connected_users)
+    print("connected user user ==> ", data)
+    print('connected users     ==> ', users.connected_users)
     users.connect_user(user)
     await sio.emit('joined', {
-        'connected_users': users.connected_users}, room=sid)
+        'connected_users': users.connected_users})
 
 
-@sio.on("message_to")
+@ sio.on("message_to")
 async def message_to(sid, data):
     print()
     print("===== data after sent a message =======")
@@ -96,12 +90,7 @@ async def message_to(sid, data):
         timestamp = data['timestamp']
         data['recipient_sid'] = recipient_sid
 
-        res = await send_event('events', data, 'messageSent')
-
-        print(res)
-        print("I should be after")
-
-        await emit('dispatched_message', {
+        await sio.emit('dispatched_message', {
             'message': data['message'],
             'recipient_sid': recipient_sid,
             'sender_sid': sender_sid,
@@ -110,10 +99,10 @@ async def message_to(sid, data):
             'timestamp': timestamp
         }, room=recipient_sid)
 
-        # await emit("ok_status", {'ok_status': True})
+        await sio.emit("ok_status", {'ok_status': True})
 
     else:
-        emit('error', {'error': 'user not identified'})
+        sio.emit('error', {'error': 'user not identified'})
 
 
 if __name__ == "__main__":

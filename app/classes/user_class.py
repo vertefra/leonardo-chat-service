@@ -7,6 +7,8 @@ class ConnectedUsers:
 
     def connect_user(self, user):
         key = user.username
+        print(" ======= user ====== ")
+        print(user)
         user_dict = {'username': user.username, 'sid': user.sid}
         print()
         print(
