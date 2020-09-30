@@ -7,6 +7,7 @@ import uvicorn
 import httpx
 import json
 
+
 fast_app = FastAPI()
 
 sio = socketio.AsyncServer(
@@ -26,11 +27,6 @@ carol_bus = "http://127.0.0.1:3005"
 
 # event dispatcher function
 
-
-async def send_event(endpoint: str, data: dict, event_type: str):
-    event = {"type": event_type, "payload": data}
-    res = await httpx.post(f"{carol_bus}/{endpoint}", data=event)
-    return res.json()
 
 # event listener from bus =====================================
 
@@ -96,12 +92,17 @@ async def message_to(sid, data):
         timestamp = data['timestamp']
         data['recipient_sid'] = recipient_sid
 
-        res = await send_event('events', data, 'messageSent')
+        try:
+            event = {"type": "messageSent", "payload": data}
+            response = httpx.post(f"{carol_bus}/events", json=event)
+            res = response.text()
+            print("Response", res)
+        except:
+            print('Something went wrong')
 
-        print(res)
         print("I should be after")
 
-        await emit('dispatched_message', {
+        await sio.emit('dispatched_message', {
             'message': data['message'],
             'recipient_sid': recipient_sid,
             'sender_sid': sender_sid,
@@ -113,7 +114,7 @@ async def message_to(sid, data):
         # await emit("ok_status", {'ok_status': True})
 
     else:
-        emit('error', {'error': 'user not identified'})
+        sio.emit('error', {'error': 'user not identified'})
 
 
 if __name__ == "__main__":
