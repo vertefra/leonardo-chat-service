@@ -1,10 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from classes.user_class import User, ConnectedUsers
-
+from httpx import AsyncClient
 import socketio
 import uvicorn
-import httpx
 import json
 
 
@@ -28,7 +27,7 @@ carol_bus = "http://127.0.0.1:3005"
 # event listener from bus =====================================
 
 
-@fast_app.post('/events/')
+@fast_app.post('/events')
 async def event_listener(event: dict):
     print("Carol dispatched a new event: ", event)
     # test end
@@ -40,6 +39,9 @@ async def event_listener(event: dict):
             print(f"{user} ready for connection")
             await sio.emit('joined', {
                 'connected_users': users.connected_users})
+
+    print("test request ")
+
     return ({'status': 'event received'})
 
 # ==============================================================
@@ -90,6 +92,16 @@ async def message_to(sid, data):
         timestamp = data['timestamp']
         data['recipient_sid'] = recipient_sid
 
+        try:
+            async with AsyncClient() as client:
+                res = await client.post(f"{carol_bus}/events",
+                                        json={"type": "messageSent", "payload": data})
+            print(res)
+        except Exception as err:
+            print(err)
+
+        print("test test test")
+
         await sio.emit('dispatched_message', {
             'message': data['message'],
             'recipient_sid': recipient_sid,
@@ -102,7 +114,7 @@ async def message_to(sid, data):
         await sio.emit("ok_status", {'ok_status': True})
 
     else:
-        sio.emit('error', {'error': 'user not identified'})
+        await sio.emit('error', {'error': 'user not identified'})
 
 
 if __name__ == "__main__":
