@@ -1,6 +1,5 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from classes.user_class import User, ConnectedUsers
+from user_class import User, ConnectedUsers
 from httpx import AsyncClient
 import socketio
 import uvicorn
@@ -100,8 +99,6 @@ async def message_to(sid, data):
         except Exception as err:
             print(err)
 
-        print("test test test")
-
         await sio.emit('dispatched_message', {
             'message': data['message'],
             'recipient_sid': recipient_sid,
@@ -118,4 +115,4 @@ async def message_to(sid, data):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port="80")
