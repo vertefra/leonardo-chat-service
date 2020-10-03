@@ -6,7 +6,7 @@ import uvicorn
 import json
 
 
-fast_app = FastAPI(debug=True)
+fast_app = FastAPI()
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins='*'
@@ -99,6 +99,8 @@ async def message_to(sid, data):
         except Exception as err:
             print(err)
 
+        print(f"sending a message to {sid}")
+
         await sio.emit('dispatched_message', {
             'message': data['message'],
             'recipient_sid': recipient_sid,
@@ -115,4 +117,4 @@ async def message_to(sid, data):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port="80")
+    uvicorn.run(app, host="127.0.0.1", port=5000)
